@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+model/artifacts/
+.DS_Store
+.ipynb_checkpoints/
+*.log
+dist/
+*.egg-info/
+.pytest_cache/

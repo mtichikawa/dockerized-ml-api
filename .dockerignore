@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+notebooks/
+tests/
+.git/
+.DS_Store
+*.md
+backdate_commits.py
