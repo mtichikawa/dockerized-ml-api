@@ -112,3 +112,5 @@ class ModelInfoResponse(BaseModel):
     precision: float
     recall: float
     detectors: list[str]
+
+# PredictRequest and PredictResponse Pydantic v2 models
