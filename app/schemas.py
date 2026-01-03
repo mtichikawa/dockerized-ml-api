@@ -114,3 +114,5 @@ class ModelInfoResponse(BaseModel):
     detectors: list[str]
 
 # PredictRequest and PredictResponse Pydantic v2 models
+
+# Added BatchPredictRequest, HealthResponse, ModelInfoResponse
