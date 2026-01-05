@@ -193,3 +193,5 @@ if __name__ == "__main__":
     parser.add_argument("--contamination", type=float, default=0.05)
     args = parser.parse_args()
     main(n_samples=args.n_samples, contamination=args.contamination)
+
+# generate_data(): synthetic 8-feature sensor data, 3 anomaly types
