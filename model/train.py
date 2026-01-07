@@ -197,3 +197,5 @@ if __name__ == "__main__":
 # generate_data(): synthetic 8-feature sensor data, 3 anomaly types
 
 # IsolationForest + LOF training with contamination parameter
+
+# ensemble_predict(): majority vote across 3 detectors
