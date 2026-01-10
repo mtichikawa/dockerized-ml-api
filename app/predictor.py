@@ -157,3 +157,5 @@ class AnomalyPredictor:
             "recall":            self.metadata.get("recall", 0.93),
             "detectors":         ["isolation_forest", "lof", "zscore"],
         }
+
+# AnomalyPredictor class: joblib model loading
