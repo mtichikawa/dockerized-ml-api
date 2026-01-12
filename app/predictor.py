@@ -159,3 +159,5 @@ class AnomalyPredictor:
         }
 
 # AnomalyPredictor class: joblib model loading
+
+# predict(): IF + LOF + Z-score votes, majority ensemble
