@@ -161,3 +161,5 @@ class AnomalyPredictor:
 # AnomalyPredictor class: joblib model loading
 
 # predict(): IF + LOF + Z-score votes, majority ensemble
+
+# Redis cache: SHA256 key, setex TTL, graceful degradation
