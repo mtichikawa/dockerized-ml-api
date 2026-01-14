@@ -207,3 +207,5 @@ async def generic_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error"},
     )
+
+# FastAPI app with lifespan: model load + Redis connect on startup
