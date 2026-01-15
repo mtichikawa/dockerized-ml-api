@@ -209,3 +209,5 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 # FastAPI app with lifespan: model load + Redis connect on startup
+
+# GET /health and GET /model/info endpoints
