@@ -213,3 +213,5 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # GET /health and GET /model/info endpoints
 
 # POST /predict and POST /predict/batch endpoints
+
+# CORS middleware, request logging middleware, generic exception handler
