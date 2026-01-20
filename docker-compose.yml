@@ -36,3 +36,5 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+# Redis service with maxmemory-policy allkeys-lru
