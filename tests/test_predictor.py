@@ -112,3 +112,5 @@ def test_predict_raises_when_not_loaded():
     pred = AnomalyPredictor(model_path="/nonexistent/path.joblib")
     with pytest.raises(RuntimeError, match="Model not loaded"):
         pred.predict([0.1] * N_FEATURES)
+
+# AnomalyPredictor unit tests with in-memory model fixture
