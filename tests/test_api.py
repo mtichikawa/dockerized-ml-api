@@ -176,3 +176,5 @@ def test_health_degraded_when_model_not_loaded(client, mock_predictor):
     data = client.get("/health").json()
     assert data["status"] == "degraded"
     assert data["model_loaded"] is False
+
+# FastAPI TestClient endpoint tests: health, predict, batch
