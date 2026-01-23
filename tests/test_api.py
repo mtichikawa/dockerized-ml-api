@@ -178,3 +178,5 @@ def test_health_degraded_when_model_not_loaded(client, mock_predictor):
     assert data["model_loaded"] is False
 
 # FastAPI TestClient endpoint tests: health, predict, batch
+
+# Edge case tests: empty features, infinite values, 503 when unloaded
