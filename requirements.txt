@@ -1,11 +1,49 @@
-fastapi==0.109.2
-uvicorn[standard]==0.27.1
-pydantic==2.6.1
-scikit-learn==1.4.0
+# Core data science
 numpy==1.26.4
-joblib==1.3.2
+pandas==2.1.4
+scipy==1.11.4
+scikit-learn==1.3.2
+
+# Visualization
+matplotlib==3.8.2
+seaborn==0.13.1
+plotly==5.18.0
+
+# NLP (Projects 3, 4, 6)
+nltk==3.8.1
+transformers==4.36.2
+
+# API / web
+requests==2.31.0
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# AWS / cloud (Project 9)
+boto3==1.34.34
+botocore==1.34.34
+moto[s3,dynamodb,lambda,logs]==5.0.2
+
+# Database (Project 7)
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# Containerization / API (Project 8)
+pydantic==2.6.1
 redis==5.0.1
-httpx==0.26.0
+
+# Utilities
+pyarrow==14.0.2
+tenacity==8.2.3
+python-dotenv==1.0.0
+tqdm==4.66.1
+tabulate==0.9.0
+
+# Jupyter
+jupyter==1.0.0
+ipykernel==6.27.1
+nbconvert==7.11.0
+
+# Testing
 pytest==7.4.4
-pytest-asyncio==0.23.5
-python-multipart==0.0.9
+pytest-cov==4.1.0
+pytest-asyncio==0.21.1
