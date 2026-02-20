@@ -44,7 +44,7 @@ class AnomalyPredictor:
         self.model = bundle["model"]
         self.metadata = bundle.get("metadata", {})
         log.info(f"Model loaded: version={MODEL_VERSION}, "
-                 f"detectors={list(self.model.keys())}")
+                 f"detectors=['isolation_forest', 'lof', 'zscore']")
 
     @property
     def is_loaded(self) -> bool:
