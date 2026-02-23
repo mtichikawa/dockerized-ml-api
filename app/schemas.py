@@ -77,6 +77,10 @@ class PredictResponse(BaseModel):
     )
     model_version: str = Field(description="Deployed model version.")
     inference_ms: float = Field(description="Server-side inference latency in milliseconds.")
+    cache_hit: bool = Field(
+        default=False,
+        description="True if this result was served from the Redis cache rather than computed.",
+    )
 
 
 class BatchPredictResponse(BaseModel):

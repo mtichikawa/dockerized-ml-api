@@ -163,31 +163,40 @@ async def predict(request: PredictRequest):
 @app.post("/predict/batch", response_model=BatchPredictResponse, tags=["Inference"])
 async def predict_batch(request: BatchPredictRequest):
     """
-    Score multiple observations in a single call.
+    Score multiple observations in a single vectorized pass.
 
-    More efficient than repeated single-predict calls.
+    Builds the full feature matrix once and runs all three detectors on it
+    together — materially faster than repeated single-predict calls for
+    batches larger than ~50 observations. Individual results are still
+    written to the Redis cache so follow-up single-predict calls benefit
+    from the warm-up.
+
     Maximum 1000 observations per request.
     """
     if _predictor is None or not _predictor.is_loaded:
         raise HTTPException(status_code=503, detail="Model not loaded. Run model/train.py first.")
 
     t0 = time.perf_counter()
+
+    # Build feature matrix and delegate to vectorized predict_batch()
+    feature_matrix = [obs.features for obs in request.observations]
+    obs_ids        = [obs.observation_id for obs in request.observations]
+
+    try:
+        raw_results = _predictor.predict_batch(feature_matrix)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        log.error(f"Batch inference error: {e}")
+        raise HTTPException(status_code=500, detail="Batch inference failed")
+
+    # Reattach caller-supplied observation IDs (predict_batch doesn't know them)
     predictions = []
+    for result, obs_id in zip(raw_results, obs_ids):
+        result["observation_id"] = obs_id
+        predictions.append(PredictResponse(**result))
 
-    for obs in request.observations:
-        try:
-            result = _predictor.predict(
-                features=obs.features,
-                observation_id=obs.observation_id,
-            )
-            predictions.append(PredictResponse(**result))
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
-        except Exception as e:
-            log.error(f"Batch inference error: {e}")
-            raise HTTPException(status_code=500, detail="Batch inference failed")
-
-    batch_ms = (time.perf_counter() - t0) * 1000
+    batch_ms      = (time.perf_counter() - t0) * 1000
     anomaly_count = sum(1 for p in predictions if p.is_anomaly)
 
     return BatchPredictResponse(

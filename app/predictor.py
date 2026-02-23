@@ -136,10 +136,97 @@ class AnomalyPredictor:
         return result
 
     def predict_batch(self, feature_matrix: list[list[float]]) -> list[dict]:
-        """Predict on multiple observations. More efficient than calling predict() in a loop."""
+        """
+        Score multiple observations in a single vectorized pass.
+
+        Constructs the full (n_observations × n_features) matrix once and runs
+        all three detectors on it together — one sklearn call per detector
+        rather than n_observations calls. This is materially faster than
+        calling predict() in a loop for batches larger than ~50 observations,
+        because it avoids per-call overhead from cache lookups, reshape, and
+        the sklearn predict dispatch.
+
+        Cache behaviour: individual results are still written to Redis so that
+        follow-up single-predict calls benefit from the cache warm-up.
+
+        Args:
+            feature_matrix: List of feature vectors, each of length N_FEATURES.
+
+        Returns:
+            List of result dicts in the same order as the input.
+        """
+        if not self.is_loaded:
+            raise RuntimeError("Model not loaded. Run model/train.py and restart.")
+
+        n = len(feature_matrix)
+        if n == 0:
+            return []
+
+        # Validate and build matrix once
+        for i, features in enumerate(feature_matrix):
+            if len(features) != N_FEATURES:
+                raise ValueError(
+                    f"Observation {i}: expected {N_FEATURES} features, got {len(features)}"
+                )
+
+        t0 = time.perf_counter()
+        X = np.array(feature_matrix, dtype=float)  # shape: (n, N_FEATURES)
+
+        # ── Run all three detectors on the full matrix ─────────────────────────
+
+        iforest    = self.model["isolation_forest"]
+        if_preds   = iforest.predict(X)           # shape: (n,) — -1 or 1
+        if_scores  = iforest.score_samples(X)      # shape: (n,)
+
+        lof        = self.model["lof"]
+        lof_preds  = lof.predict(X)
+        lof_scores = lof.score_samples(X)
+
+        scaler      = self.model["scaler"]
+        z_threshold = self.metadata.get("z_threshold", 3.0)
+        X_scaled    = scaler.transform(X)          # shape: (n, N_FEATURES)
+        z_max       = np.abs(X_scaled).max(axis=1) # shape: (n,) — worst z-score per obs
+
+        # ── Assemble results ───────────────────────────────────────────────────
+
+        total_ms = (time.perf_counter() - t0) * 1000
+        per_obs_ms = round(total_ms / n, 2)
+
         results = []
-        for features in feature_matrix:
-            results.append(self.predict(features))
+        for i in range(n):
+            votes = {
+                "isolation_forest": bool(if_preds[i] == -1),
+                "lof":              bool(lof_preds[i] == -1),
+                "zscore":           bool(z_max[i] > z_threshold),
+            }
+            vote_count = sum(votes.values())
+            is_anomaly = vote_count >= 2
+            confidence = max(
+                vote_count / 3.0 if is_anomaly else (3 - vote_count) / 3.0,
+                0.34,
+            )
+
+            result = {
+                "observation_id": None,
+                "is_anomaly":     is_anomaly,
+                "anomaly_score":  round(float(if_scores[i]), 4),
+                "confidence":     round(confidence, 3),
+                "votes":          votes,
+                "model_version":  MODEL_VERSION,
+                "inference_ms":   per_obs_ms,
+                "cache_hit":      False,
+            }
+
+            # Write each result to Redis for future single-predict cache hits
+            if self.redis:
+                cache_key = self._cache_key(feature_matrix[i])
+                try:
+                    self.redis.setex(cache_key, 300, json.dumps(result))
+                except Exception as e:
+                    log.warning(f"Redis cache write failed (obs {i}): {e}")
+
+            results.append(result)
+
         return results
 
     def model_info(self) -> dict:
