@@ -9,3 +9,18 @@ model/artifacts/
 dist/
 *.egg-info/
 .pytest_cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Backup files
+*.bak
+*.orig
