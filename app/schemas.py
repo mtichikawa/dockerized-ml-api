@@ -51,6 +51,7 @@ class BatchPredictRequest(BaseModel):
 
 # ── Response models ────────────────────────────────────────────────────────────
 
+# cache_hit field surfaces Redis cache status in the API response
 class PredictResponse(BaseModel):
     """Single-observation prediction response."""
 
