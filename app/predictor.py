@@ -18,6 +18,7 @@ import numpy as np
 log = logging.getLogger("predictor")
 
 MODEL_VERSION = "1.0.0"
+# N_FEATURES read from bundle metadata in _load(); 8 is the fallback default
 N_FEATURES = 8
 
 
