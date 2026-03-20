@@ -64,6 +64,7 @@ class AnomalyPredictor:
         if not self.is_loaded:
             raise RuntimeError("Model not loaded. Run model/train.py and restart.")
 
+        # guard: mismatched feature count is a caller error, not a model error
         if len(features) != N_FEATURES:
             raise ValueError(f"Expected {N_FEATURES} features, got {len(features)}")
 
