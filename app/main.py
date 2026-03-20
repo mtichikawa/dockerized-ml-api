@@ -4,26 +4,34 @@ app/main.py — FastAPI application entry point.
 Routes:
     GET  /health           Service health + model status
     GET  /model/info       Model metadata and evaluation metrics
-    POST /predict          Single observation prediction
-    POST /predict/batch    Batch prediction (up to 1000 rows)
+    POST /predict          Single observation prediction (sync)
+    POST /predict/batch    Batch prediction (up to 1000 rows, sync)
+    POST /predict/async    Submit prediction job (returns immediately)
+    GET  /jobs/{job_id}    Poll for async job result
     GET  /docs             Auto-generated Swagger UI (FastAPI built-in)
 """
 
+import asyncio
 import logging
+import math
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 import redis as redis_lib
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.predictor import AnomalyPredictor
 from app.schemas import (
+    AsyncPredictResponse,
     BatchPredictRequest,
     BatchPredictResponse,
     HealthResponse,
+    JobStatusResponse,
     ModelInfoResponse,
     PredictRequest,
     PredictResponse,
@@ -40,6 +48,11 @@ log = logging.getLogger("main")
 _predictor: AnomalyPredictor | None = None
 _redis_client = None
 _start_time = time.time()
+
+# In-memory job store for async predictions.
+# Production would use Redis or a task queue like Celery.
+_jobs: dict[str, dict] = {}
+_JOB_TTL_SECONDS = 300
 
 
 # ── Lifespan: startup / shutdown ───────────────────────────────────────────────
@@ -208,7 +221,113 @@ async def predict_batch(request: BatchPredictRequest):
     )
 
 
+# ── Async inference ────────────────────────────────────────────────────────────
+
+async def _run_prediction(job_id: str, features: list[float], observation_id: str | None):
+    """Run prediction in a thread pool and store the result."""
+    try:
+        result = await asyncio.to_thread(
+            _predictor.predict,
+            features=features,
+            observation_id=observation_id,
+        )
+        _jobs[job_id]["status"] = "complete"
+        _jobs[job_id]["result"] = result
+        _jobs[job_id]["completed_at"] = time.time()
+    except Exception as e:
+        _jobs[job_id]["status"] = "failed"
+        _jobs[job_id]["error"] = str(e)
+        _jobs[job_id]["completed_at"] = time.time()
+        log.error(f"Async job {job_id} failed: {e}")
+
+
+def _expire_old_jobs():
+    """Remove jobs older than TTL to prevent memory leaks."""
+    now = time.time()
+    expired = [
+        jid for jid, job in _jobs.items()
+        if now - job["created_at"] > _JOB_TTL_SECONDS
+    ]
+    for jid in expired:
+        del _jobs[jid]
+
+
+@app.post("/predict/async", response_model=AsyncPredictResponse, tags=["Async Inference"])
+async def predict_async(request: PredictRequest):
+    """
+    Submit a prediction job that runs in a background thread.
+
+    Returns a job_id immediately. Poll GET /jobs/{job_id} for the result.
+    Useful when the caller doesn't want to block on inference latency.
+    """
+    if _predictor is None or not _predictor.is_loaded:
+        raise HTTPException(status_code=503, detail="Model not loaded.")
+
+    _expire_old_jobs()
+
+    job_id = str(uuid.uuid4())
+    _jobs[job_id] = {
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "created_at": time.time(),
+        "completed_at": None,
+    }
+
+    asyncio.create_task(_run_prediction(job_id, request.features, request.observation_id))
+    log.info(f"Async job submitted: {job_id}")
+
+    return AsyncPredictResponse(job_id=job_id, status="pending")
+
+
+@app.get("/jobs/{job_id}", response_model=JobStatusResponse, tags=["Async Inference"])
+async def get_job_status(job_id: str):
+    """
+    Check the status of an async prediction job.
+
+    Returns pending/complete/failed. When complete, includes the full
+    prediction result.
+    """
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found or expired")
+
+    job = _jobs[job_id]
+    return JobStatusResponse(
+        job_id=job_id,
+        status=job["status"],
+        result=job["result"],
+        error=job["error"],
+        created_at=job["created_at"],
+        completed_at=job["completed_at"],
+    )
+
+
 # ── Exception handlers ─────────────────────────────────────────────────────────
+
+def _sanitize_for_json(obj):
+    """Replace inf/nan and non-serializable objects so JSON encoding doesn't crash."""
+    if isinstance(obj, float) and (math.isinf(obj) or math.isnan(obj)):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(v) for v in obj]
+    # Catch non-serializable objects (e.g. Exception instances in Pydantic ctx)
+    try:
+        import json
+        json.dumps(obj)
+        return obj
+    except (TypeError, ValueError):
+        return str(obj)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return 422 with sanitized error details (handles inf/nan in input)."""
+    errors = _sanitize_for_json(exc.errors())
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     log.error(f"Unhandled exception: {exc}", exc_info=True)
@@ -216,11 +335,3 @@ async def generic_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={"detail": "Internal server error"},
     )
-
-# FastAPI app with lifespan: model load + Redis connect on startup
-
-# GET /health and GET /model/info endpoints
-
-# POST /predict and POST /predict/batch endpoints
-
-# CORS middleware, request logging middleware, generic exception handler

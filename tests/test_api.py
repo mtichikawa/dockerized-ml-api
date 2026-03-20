@@ -26,6 +26,21 @@ def mock_predictor():
         "inference_ms": 1.5,
         "cache_hit": False,
     }
+    def _mock_batch(feature_matrix):
+        return [
+            {
+                "observation_id": None,
+                "is_anomaly": False,
+                "anomaly_score": -0.127,
+                "confidence": 0.873,
+                "votes": {"isolation_forest": False, "lof": False, "zscore": False},
+                "model_version": "1.0.0",
+                "inference_ms": 1.5,
+                "cache_hit": False,
+            }
+            for _ in feature_matrix
+        ]
+    pred.predict_batch.side_effect = _mock_batch
     pred.model_info.return_value = {
         "model_version": "1.0.0",
         "algorithm": "Ensemble (IsolationForest + LOF + Z-score)",
@@ -44,9 +59,10 @@ def mock_predictor():
 @pytest.fixture
 def client(mock_predictor):
     from app import main as app_module
-    app_module._predictor = mock_predictor
-    app_module._redis_client = None
     with TestClient(app_module.app) as c:
+        # Inject mock AFTER lifespan runs (lifespan loads real model on enter)
+        app_module._predictor = mock_predictor
+        app_module._redis_client = None
         yield c
 
 
@@ -177,6 +193,36 @@ def test_health_degraded_when_model_not_loaded(client, mock_predictor):
     assert data["status"] == "degraded"
     assert data["model_loaded"] is False
 
-# FastAPI TestClient endpoint tests: health, predict, batch
 
-# Edge case tests: empty features, infinite values, 503 when unloaded
+# ── Async predict endpoint ───────────────────────────────────────────────────
+
+def test_async_predict_returns_job_id(client):
+    resp = client.post("/predict/async", json={"features": VALID_FEATURES})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "job_id" in data
+    assert data["status"] == "pending"
+
+
+def test_async_predict_job_completes(client):
+    resp = client.post("/predict/async", json={"features": VALID_FEATURES})
+    job_id = resp.json()["job_id"]
+    import time
+    time.sleep(0.1)
+    status_resp = client.get(f"/jobs/{job_id}")
+    assert status_resp.status_code == 200
+    data = status_resp.json()
+    assert data["status"] == "complete"
+    assert data["result"] is not None
+    assert "is_anomaly" in data["result"]
+
+
+def test_async_predict_503_when_model_not_loaded(client, mock_predictor):
+    mock_predictor.is_loaded = False
+    resp = client.post("/predict/async", json={"features": VALID_FEATURES})
+    assert resp.status_code == 503
+
+
+def test_job_not_found_returns_404(client):
+    resp = client.get("/jobs/nonexistent-id")
+    assert resp.status_code == 404

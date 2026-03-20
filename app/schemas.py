@@ -96,6 +96,7 @@ class BatchPredictResponse(BaseModel):
 
 class HealthResponse(BaseModel):
     """Service health check response."""
+    model_config = {"protected_namespaces": ()}
 
     status: str = Field(description="'healthy' or 'degraded'")
     model_loaded: bool
@@ -106,6 +107,7 @@ class HealthResponse(BaseModel):
 
 class ModelInfoResponse(BaseModel):
     """Model metadata response."""
+    model_config = {"protected_namespaces": ()}
 
     model_version: str
     algorithm: str
@@ -118,6 +120,29 @@ class ModelInfoResponse(BaseModel):
     recall: float
     detectors: list[str]
 
-# PredictRequest and PredictResponse Pydantic v2 models
 
-# Added BatchPredictRequest, HealthResponse, ModelInfoResponse
+class AsyncPredictResponse(BaseModel):
+    """Response from POST /predict/async — job submitted."""
+
+    job_id: str = Field(description="Unique job identifier for polling.")
+    status: str = Field(description="Job status: 'pending'.")
+
+
+class JobStatusResponse(BaseModel):
+    """Response from GET /jobs/{job_id} — poll for async result."""
+
+    job_id: str
+    status: str = Field(description="'pending', 'complete', or 'failed'.")
+    result: Optional[dict] = Field(
+        default=None,
+        description="Prediction result when status is 'complete'.",
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message when status is 'failed'.",
+    )
+    created_at: float = Field(description="Job creation timestamp (epoch).")
+    completed_at: Optional[float] = Field(
+        default=None,
+        description="Job completion timestamp (epoch).",
+    )
