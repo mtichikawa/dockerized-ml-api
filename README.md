@@ -15,9 +15,10 @@ Most ML projects end at the Jupyter notebook. This one goes further — packagin
 1. **Trains** an anomaly detection ensemble on synthetic time-series sensor data
 2. **Serializes** the model with joblib and embeds it in a Docker image
 3. **Serves** predictions via a FastAPI REST endpoint with Pydantic input validation
-4. **Provides** `/health`, `/predict`, `/predict/batch`, and `/model/info` endpoints
-5. **Orchestrates** API + Redis cache layer via docker-compose
-6. **Tests** all endpoints with pytest + httpx async client
+4. **Provides** `/health`, `/predict`, `/predict/batch`, `/predict/async`, and `/model/info` endpoints
+5. **Supports** async inference — submit jobs and poll for results without blocking
+6. **Orchestrates** API + Redis cache layer via docker-compose
+7. **Tests** all endpoints with pytest (32 tests)
 
 ---
 
@@ -109,6 +110,8 @@ uvicorn app.main:app --reload --port 8000
 | GET | `/model/info` | Model metadata, version, threshold |
 | POST | `/predict` | Single observation prediction |
 | POST | `/predict/batch` | Batch prediction (up to 1000 rows) |
+| POST | `/predict/async` | Submit async prediction job |
+| GET | `/jobs/{job_id}` | Poll for async job result |
 | GET | `/docs` | Auto-generated Swagger UI |
 
 ### Example: Single Prediction
@@ -144,6 +147,21 @@ curl -X POST http://localhost:8000/predict/batch \
     ]
   }'
 ```
+
+### Example: Async Prediction
+```bash
+# Submit job
+curl -X POST http://localhost:8000/predict/async \
+  -H "Content-Type: application/json" \
+  -d '{"features": [0.5, 1.2, -0.3, 0.8, 1.5, 0.2, -0.1, 0.9]}'
+# → {"job_id": "a1b2c3...", "status": "pending"}
+
+# Poll for result
+curl http://localhost:8000/jobs/a1b2c3...
+# → {"job_id": "a1b2c3...", "status": "complete", "result": {...}}
+```
+
+Jobs run in a background thread pool via `asyncio.to_thread()` and expire after 5 minutes. Useful when callers don't want to block on inference latency.
 
 ---
 
