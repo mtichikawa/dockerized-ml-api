@@ -131,7 +131,7 @@ class AnomalyPredictor:
         # Write to cache (TTL 5 minutes)
         if self.redis:
             try:
-                self.redis.setex(cache_key, 300, json.dumps(result))
+                self.redis.setex(cache_key, 300, json.dumps(result))  # 300s TTL: stale enough for caching, fresh enough for model updates
             except Exception as e:
                 log.warning(f"Redis cache write failed: {e}")
 
