@@ -109,7 +109,7 @@ class AnomalyPredictor:
             "zscore":            zscore_vote,
         }
         vote_count = sum(votes.values())
-        is_anomaly = vote_count >= 2   # majority vote
+        is_anomaly = vote_count >= 2   # majority: 2 of 3 detectors must agree — balances precision vs recall
 
         # Confidence: how unanimous is the vote?
         confidence = vote_count / 3.0 if is_anomaly else (3 - vote_count) / 3.0
