@@ -113,7 +113,7 @@ class AnomalyPredictor:
 
         # Confidence: how unanimous is the vote?
         confidence = vote_count / 3.0 if is_anomaly else (3 - vote_count) / 3.0
-        confidence = max(confidence, 0.34)  # minimum 1/3 (one dissenter)
+        confidence = max(confidence, 0.34)  # floor at 1/3: unanimous disagreement is still a signal, not zero confidence
 
         inference_ms = (time.perf_counter() - t0) * 1000
 
