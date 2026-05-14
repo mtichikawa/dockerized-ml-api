@@ -13,6 +13,7 @@ from sklearn.neighbors import LocalOutlierFactor
 from sklearn.preprocessing import StandardScaler
 
 from app.predictor import AnomalyPredictor, N_FEATURES
+from typing import Any
 
 
 @pytest.fixture(scope="session")
@@ -41,7 +42,7 @@ def trained_model_path():
 
 
 @pytest.fixture
-def predictor(trained_model_path):
+def predictor(trained_model_path: Any):
     return AnomalyPredictor(model_path=trained_model_path, redis_client=None)
 
 
