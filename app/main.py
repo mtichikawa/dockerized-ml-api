@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 
 from app.predictor import AnomalyPredictor
 from app.schemas import (
+from typing import Any
     AsyncPredictResponse,
     BatchPredictRequest,
     BatchPredictResponse,
@@ -304,7 +305,7 @@ async def get_job_status(job_id: str):
 
 # ── Exception handlers ─────────────────────────────────────────────────────────
 
-def _sanitize_for_json(obj):
+def _sanitize_for_json(obj: Any):
     """Replace inf/nan and non-serializable objects so JSON encoding doesn't crash."""
     if isinstance(obj, float) and (math.isinf(obj) or math.isnan(obj)):
         return str(obj)
