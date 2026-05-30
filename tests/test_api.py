@@ -8,6 +8,7 @@ Mocks the predictor so tests run without a trained model file.
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
+from typing import Any
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ def mock_predictor():
         "inference_ms": 1.5,
         "cache_hit": False,
     }
-    def _mock_batch(feature_matrix):
+    def _mock_batch(feature_matrix: Any):
         return [
             {
                 "observation_id": None,
