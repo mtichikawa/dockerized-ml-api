@@ -211,3 +211,5 @@ joblib is optimized for large numpy arrays — sklearn models store fitted param
 
 **What's the Redis layer for?**
 Caching predictions for identical inputs avoids redundant model inference. In production with high-frequency sensor data, many readings repeat, so caching can cut inference load significantly.
+
+> _Note: prediction cache TTL defaults to 1 hour. Shorter TTL improves freshness when the underlying model is retrained frequently; longer TTL improves latency on repeated identical inputs._
