@@ -5,12 +5,12 @@ Loads the trained ensemble model from disk (joblib) and provides
 a clean predict() interface used by the API routes.
 """
 
+from pathlib import Path
+from typing import Optional
 import hashlib
 import json
 import logging
 import time
-from pathlib import Path
-from typing import Optional
 
 import joblib
 import numpy as np
